@@ -1,0 +1,902 @@
+[
+  {
+    "title": "5-Minute Rx and Tx Throughput Trend per AP for site HA02",
+    "description": "Monitors AP SASA-HA02-AP01 at site HA02 on a 5-minute timeline, broken out by radio band (GHz). For each band it derives downlink (Rx) and uplink (Tx) throughput in Mbps from cumulative SSID byte counters, so you can see band-level traffic trends, bursts, and imbalances across 2.4/5/6 GHz. Useful for band steering checks, capacity planning, and post-change verification. Command/diagnostic noise is excluded. ",
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": 1754380893089,
+                  "lte": 1754467293089,
+                  "format": "epoch_millis"
+                }
+              }
+            },
+            {
+              "bool": {
+                "must": [
+                  {
+                    "term": {
+                      "site.keyword": "HA02"
+                    }
+                  },
+                  {
+                    "term": {
+                      "availabilityName.keyword": "SASA-HA02-AP01"
+                    }
+                  }
+                ],
+                "must_not": [
+                  {
+                    "exists": {
+                      "field": "command"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "availability_group": {
+          "terms": {
+            "field": "availabilityName.keyword",
+            "size": 100,
+            "order": {
+              "_key": "desc"
+            },
+            "min_doc_count": 1
+          },
+          "aggs": {
+            "by_GHz": {
+              "terms": {
+                "field": "GHz.keyword",
+                "size": 100,
+                "order": {
+                  "_key": "desc"
+                },
+                "min_doc_count": 1
+              },
+              "aggs": {
+                "time_buckets": {
+                  "date_histogram": {
+                    "field": "@timestamp",
+                    "min_doc_count": 0,
+                    "extended_bounds": {
+                      "min": 1754380893089,
+                      "max": 1754467293089
+                    },
+                    "format": "epoch_millis",
+                    "fixed_interval": "5m"
+                  },
+                  "aggs": {
+                    "max_rx_bytes": {
+                      "max": {
+                        "field": "SSIDTable.RxDataBytes",
+                        "script": {
+                          "source": "_value / (300 / 8)"
+                        }
+                      }
+                    },
+                    "rx_diff": {
+                      "serial_diff": {
+                        "buckets_path": "max_rx_bytes",
+                        "lag": 1
+                      }
+                    },
+                    "max_tx_bytes_rate": {
+                      "max": {
+                        "field": "SSIDTable.TxDataBytes",
+                        "script": {
+                          "source": "_value / (300 / 8)"
+                        }
+                      }
+                    },
+                    "rate_diff": {
+                      "serial_diff": {
+                        "buckets_path": "max_tx_bytes_rate",
+                        "lag": 1
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "logic": "Filters:\n  •\tTime range (@timestamp)\n  •\tsite = “HA02”\n  •\tavailabilityName = “SASA-HA02-AP01”\n  •\tExclude documents where command exists\n\n  Aggregations:\n  •\tGroup by device (availabilityName.keyword)\n  •\tThen by band (GHz.keyword)\n  •\tThen by time (date_histogram, 5m)\n  •\tCompute max RX traffic rate per interval (SSIDTable.RxDataBytes ÷ 37.5)\n  •\tCompute serial difference of RX rate (serial_diff on RX)\n  •\tCompute max TX traffic rate per interval (SSIDTable.TxDataBytes ÷ 37.5)\n  •\tCompute serial difference of TX rate (serial_diff on TX)",
+    "relevant_fields": "@timestamp, site.keyword, availabilityName.keyword, GHz.keyword, SSIDTable.RxDataBytes, SSIDTable.TxDataBytes, command",
+    "note": "This query calculates the RX and TX traffic rates (not raw totals) by dividing the byte counters by 37.5 seconds (i.e., 300 seconds per 5m interval, converted to bits per second).",
+    "wifi_brand": "ARUBA"
+  },
+  {
+    "title": "5-minute inbound traffic trend per interface (ge-0/0/0, ge-0/0/1, ge-0/0/2, ge-0/0/4) for SRX300 firewall at Office site",
+    "description": "For the Office site’s SRX300 firewall, this query tracks inbound traffic per interface for ports ge-0/0/0, ge-0/0/1, ge-0/0/2, ge-0/0/4. It shows a 5-minute timeline for each interface, converts the cumulative byte counter to Mbps, and then calculates the change from the previous 5-minute block. Use it to compare load across interfaces, spot spikes or drops, and catch wiring/config issues (e.g., a suddenly idle uplink). Command/diagnostic records are excluded.",
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": 1754383331992,
+                  "lte": 1754469731992,
+                  "format": "epoch_millis"
+                }
+              }
+            },
+            {
+              "bool": {
+                "must": [
+                  {
+                    "term": {
+                      "site.keyword": "Office"
+                    }
+                  },
+                  {
+                    "term": {
+                      "devicename.keyword": "SRX300"
+                    }
+                  },
+                  {
+                    "term": {
+                      "devicedesc.keyword": "Firewall"
+                    }
+                  },
+                  {
+                    "bool": {
+                      "should": [
+                        {
+                          "term": {
+                            "InterfaceTable.Description.keyword": "ge-0/0/0"
+                          }
+                        },
+                        {
+                          "term": {
+                            "InterfaceTable.Description.keyword": "ge-0/0/1"
+                          }
+                        },
+                        {
+                          "term": {
+                            "InterfaceTable.Description.keyword": "ge-0/0/2"
+                          }
+                        },
+                        {
+                          "term": {
+                            "InterfaceTable.Description.keyword": "ge-0/0/4"
+                          }
+                        }
+                      ],
+                      "minimum_should_match": 1
+                    }
+                  }
+                ],
+                "must_not": [
+                  {
+                    "exists": {
+                      "field": "command"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "by_interface": {
+          "terms": {
+            "field": "InterfaceTable.Description.keyword",
+            "size": 500,
+            "order": {
+              "_key": "desc"
+            },
+            "min_doc_count": 1
+          },
+          "aggs": {
+            "per_5min": {
+              "date_histogram": {
+                "field": "@timestamp",
+                "min_doc_count": 0,
+                "extended_bounds": {
+                  "min": 1754383331992,
+                  "max": 1754469731992
+                },
+                "format": "epoch_millis",
+                "fixed_interval": "5m"
+              },
+              "aggs": {
+                "max_in_traffic": {
+                  "max": {
+                    "field": "InterfaceTable.InTraffic",
+                    "script": {
+                      "source": "_value / 37.5"
+                    }
+                  }
+                },
+                "in_traffic_diff": {
+                  "serial_diff": {
+                    "buckets_path": "max_in_traffic"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "logic": "Filters:\n  •\tTime range (@timestamp)\n  •\tsite = “Office”\n  •\tdevicename = “SRX300”\n  •\tdevicedesc = “Firewall”\n  •\tInterfaceTable.Description in [“ge-0/0/0”, “ge-0/0/1”, “ge-0/0/2”, “ge-0/0/4”]\n  •\tExclude documents where command exists\n  Aggregations:\n  •\tGroup by interface name (InterfaceTable.Description.keyword)\n  •\tThen by time (date_histogram, 5m)\n  •\tGet max inbound traffic per interval, converted to rate (InterfaceTable.InTraffic / 37.5)\n  •\tCompute serial difference to get rate per 5 minutes (serial_diff)",
+    "relevant_fields": "@timestamp, site.keyword, devicename.keyword, devicedesc.keyword, InterfaceTable.Description.keyword, InterfaceTable.InTraffic, command",
+    "note": "This query measures the inbound traffic rate of specific firewall interfaces (ge-*) by converting cumulative traffic counters into per-second rates.",
+    "wifi_brand": "ARUBA"
+  },
+  {
+    "title": "Trend of Available Access Points (excluding Virtual Controllers) per Site every 5 Minutes",
+    "description": "Shows, per site and every 5 minutes over a ~15-minute window, how many physical Access points(AP) are up/available (based on availabilityStatus), excluding Virtual Controller 1/2. Use it to quickly confirm site health, catch sudden AP drop-offs, and verify recoveries during incidents or maintenance. Ideal for NOC “are APs up right now?” checks and short-window SLA verification.",
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": 1754469727163,
+                  "lte": 1754470627163,
+                  "format": "epoch_millis"
+                }
+              }
+            },
+            {
+              "terms": {
+                "availabilityStatus": [
+                  1,
+                  2
+                ]
+              }
+            }
+          ],
+          "must_not": [
+            {
+              "term": {
+                "availabilityName.keyword": "Virtual Controller 1"
+              }
+            },
+            {
+              "term": {
+                "availabilityName.keyword": "Virtual Controller 2"
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "by_site": {
+          "terms": {
+            "field": "site.keyword",
+            "size": 100
+          },
+          "aggs": {
+            "per_5m": {
+              "date_histogram": {
+                "field": "@timestamp",
+                "fixed_interval": "5m",
+                "format": "epoch_millis",
+                "min_doc_count": 0,
+                "extended_bounds": {
+                  "min": 1754469727163,
+                  "max": 1754470627163
+                }
+              },
+              "aggs": {
+                "available_ap_count": {
+                  "cardinality": {
+                    "field": "availabilityName.keyword"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "logic": "Filters:\n  •\tTime range (@timestamp)\n  •\tavailabilityStatus in [1, 2]\n  •\tExclude availabilityName = “Virtual Controller 1”\n  •\tExclude availabilityName = “Virtual Controller 2”\n\n  Aggregations:\n  •\tGroup by site (site.keyword)\n  •\tThen by time (date_histogram, 5m)\n  •\tCount distinct available APs per time bucket (cardinality on availabilityName.keyword)",
+    "relevant_fields": "@timestamp, site.keyword, availabilityName.keyword, availabilityStatus",
+    "note": "Virtual controllers are excluded from the count to ensure only actual Access Points(AP) are considered.",
+    "wifi_brand": "ARUBA"
+  },
+  {
+    "title": "5-Minute Inbound Throughput Trend per Switch Port Interface on Switch 01 at site HA02.",
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": 1754449624834,
+                  "lte": 1754471224834,
+                  "format": "epoch_millis"
+                }
+              }
+            },
+            {
+              "term": {
+                "site.keyword": "HA02"
+              }
+            },
+            {
+              "term": {
+                "devicename.keyword": "Switch 01"
+              }
+            },
+            {
+              "wildcard": {
+                "InterfaceTable.Description.keyword": {
+                  "value": "*swp*"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "6": {
+          "terms": {
+            "field": "InterfaceTable.Description.keyword",
+            "size": 500,
+            "order": {
+              "_key": "asc"
+            },
+            "min_doc_count": 1
+          },
+          "aggs": {
+            "2": {
+              "date_histogram": {
+                "field": "@timestamp",
+                "min_doc_count": 0,
+                "extended_bounds": {
+                  "min": 1754449624834,
+                  "max": 1754471224834
+                },
+                "format": "epoch_millis",
+                "fixed_interval": "5m"
+              },
+              "aggs": {
+                "1": {
+                  "max": {
+                    "field": "InterfaceTable.InTraffic",
+                    "script": "_value / (300/8)"
+                  }
+                },
+                "3": {
+                  "serial_diff": {
+                    "buckets_path": "1",
+                    "lag": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "logic": "Filters:\n  •\tTime range (@timestamp)\n  •\tsite = “HA02”\n  •\tdevicename = “Switch 01”\n  •\tInterfaceTable.Description matches pattern “swp”\n\n  Aggregations:\n  •\tGroup by interface name (InterfaceTable.Description.keyword)\n  •\tThen by time (date_histogram, 5m)\n  •\tGet max inbound traffic per interval, converted to rate (InterfaceTable.InTraffic ÷ 37.5)\n  •\tCompute serial difference between intervals (serial_diff)",
+    "relevant_fields": "@timestamp, site.keyword, devicename.keyword, InterfaceTable.Description.keyword, InterfaceTable.InTraffic",
+    "note": "converting cumulative traffic to per-second rate and computing interval differences",
+    "wifi_brand": "ARUBA"
+  },
+  {
+    "title": "Analyze data throughput (Rx and Tx) by AP over last 7 days in 5-min intervals",
+    "logic": "The query filters data from site 'HA02' within the last 7 days, calculates throughput metrics for Rx and Tx data for each Wi-Fi access point grouped by 5-minute intervals, applying serial_diff for throughput trends.",
+    "content": {
+      "summary": "Analyzing Rx and Tx data throughput trends for access points over the last 7 days.",
+      "metrics": [
+        "max of SSIDTable.RxDataBytes",
+        "max of SSIDTable.TxDataBytes",
+        "derived Rx throughput (RxDataBytes * 8 / 300)",
+        "derived Tx throughput (TxDataBytes * 8 / 300)",
+        "serial_diff of Rx throughput",
+        "serial_diff of Tx throughput"
+      ],
+      "filters": [
+        "site.keyword = 'HA02'",
+        "@timestamp between 'now-7d/d' and 'now/d'"
+      ],
+      "groupings": [
+        "'WirelessTable.AP_Name.keyword' as access point",
+        "date_histogram by '@timestamp' in 5-minute fixed intervals"
+      ],
+      "time_granularity": [
+        "5-minute intervals"
+      ],
+      "methodology": [
+        "bucket_script for calculating throughput",
+        "serial_diff for analyzing throughput trends"
+      ]
+    },
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "term": {
+                "site.keyword": "HA02"
+              }
+            },
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": "now-7d/d",
+                  "lte": "now/d",
+                  "format": "strict_date_optional_time"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "group_by_ap": {
+          "terms": {
+            "field": "WirelessTable.AP_Name.keyword",
+            "size": 100
+          },
+          "aggs": {
+            "time_buckets": {
+              "date_histogram": {
+                "field": "@timestamp",
+                "fixed_interval": "5m",
+                "format": "strict_date_optional_time"
+              },
+              "aggs": {
+                "rx_diff": {
+                  "max": {
+                    "field": "SSIDTable.RxDataBytes"
+                  }
+                },
+                "rx_calculated": {
+                  "bucket_script": {
+                    "buckets_path": {
+                      "max_rx": "rx_diff"
+                    },
+                    "script": "params.max_rx * 8 / 300"
+                  }
+                },
+                "rx_throughput": {
+                  "serial_diff": {
+                    "buckets_path": "rx_calculated"
+                  }
+                },
+                "tx_diff": {
+                  "max": {
+                    "field": "SSIDTable.TxDataBytes"
+                  }
+                },
+                "tx_calculated": {
+                  "bucket_script": {
+                    "buckets_path": {
+                      "max_tx": "tx_diff"
+                    },
+                    "script": "params.max_tx * 8 / 300"
+                  }
+                },
+                "tx_throughput": {
+                  "serial_diff": {
+                    "buckets_path": "tx_calculated"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "title": "Analyze Rx/Tx throughput and AP metrics in 5-minute intervals over the last week.",
+    "logic": "This query calculates network throughput metrics (Rx and Tx in bits), using 5-minute intervals over the past 7 days for the HA02 site. It organizes data by AP names and applies transformations like bucket scripting and serial differences for throughput trends.",
+    "content": {
+      "summary": "Analyze Rx/Tx data throughput trends per AP at 5-minute intervals for site HA02 in the past week.",
+      "metrics": [
+        "max_rx (maximum SSIDTable.RxDataBytes)",
+        "max_tx (maximum SSIDTable.TxDataBytes)",
+        "Rx_in_bits (Rx converted to bits per 5 minutes)",
+        "Tx_in_bits (Tx converted to bits per 5 minutes)",
+        "Rx_throughput (change in Rx_in_bits over intervals)",
+        "Tx_throughput (change in Tx_in_bits over intervals)"
+      ],
+      "filters": [
+        "Time range: from now-7d/d to now/d",
+        "site.keyword = 'HA02'"
+      ],
+      "groupings": [
+        "WirelessTable.AP_Name.keyword"
+      ],
+      "time_granularity": [
+        "5-minute intervals"
+      ],
+      "methodology": [
+        "date_histogram",
+        "bucket_script (to calculate Rx_in_bits and Tx_in_bits)",
+        "serial_diff (to calculate Rx_throughput and Tx_throughput)"
+      ]
+    },
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": "now-7d/d",
+                  "lte": "now/d",
+                  "format": "strict_date_optional_time"
+                }
+              }
+            },
+            {
+              "term": {
+                "site.keyword": "HA02"
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "5_minute_intervals": {
+          "date_histogram": {
+            "field": "@timestamp",
+            "fixed_interval": "5m",
+            "time_zone": "Asia/Hong_Kong"
+          },
+          "aggs": {
+            "max_rx": {
+              "max": {
+                "field": "SSIDTable.RxDataBytes"
+              }
+            },
+            "max_tx": {
+              "max": {
+                "field": "SSIDTable.TxDataBytes"
+              }
+            },
+            "Rx_in_bits": {
+              "bucket_script": {
+                "buckets_path": {
+                  "max_rx": "max_rx"
+                },
+                "script": "(params.max_rx * 8) / 300"
+              }
+            },
+            "Tx_in_bits": {
+              "bucket_script": {
+                "buckets_path": {
+                  "max_tx": "max_tx"
+                },
+                "script": "(params.max_tx * 8) / 300"
+              }
+            },
+            "Rx_throughput": {
+              "serial_diff": {
+                "buckets_path": "Rx_in_bits"
+              }
+            },
+            "Tx_throughput": {
+              "serial_diff": {
+                "buckets_path": "Tx_in_bits"
+              }
+            },
+            "AP_group": {
+              "terms": {
+                "field": "WirelessTable.AP_Name.keyword"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "title": "Analyze AP throughput and data transfer metrics over 5-minute intervals for the past week.",
+    "logic": "This query filters data for the past 7 days for a specific site ('HA02') and aggregates it by 5-minute intervals. It computes maximum RX and TX data for each interval, derives RX/TX throughput in bits per second, and calculates throughput differences between intervals. Results are further grouped by wireless access point (AP).",
+    "content": {
+      "summary": "The query analyzes throughput and data transfer metrics over time for a specific location and groups results by AP.",
+      "metrics": [
+        "max(RxDataBytes)",
+        "max(TxDataBytes)",
+        "Rx_in_bits (converted from max RX data)",
+        "Tx_in_bits (converted from max TX data)",
+        "Rx_throughput (serial difference of RX bits)",
+        "Tx_throughput (serial difference of TX bits)"
+      ],
+      "filters": [
+        "@timestamp between now-7d/d and now/d",
+        "site.keyword equals 'HA02'"
+      ],
+      "groupings": [
+        "5-minute intervals (@timestamp)",
+        "WirelessTable.AP_Name.keyword"
+      ],
+      "time_granularity": [
+        "5-minute intervals"
+      ],
+      "methodology": [
+        "bucket_script to convert RX/TX data bytes to bits per interval",
+        "serial_diff to calculate throughput change between intervals"
+      ]
+    },
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": "now-7d/d",
+                  "lte": "now/d",
+                  "format": "strict_date_optional_time"
+                }
+              }
+            },
+            {
+              "term": {
+                "site.keyword": "HA02"
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "5_minute_intervals": {
+          "date_histogram": {
+            "field": "@timestamp",
+            "fixed_interval": "5m",
+            "time_zone": "Asia/Hong_Kong"
+          },
+          "aggs": {
+            "max_rx": {
+              "max": {
+                "field": "SSIDTable.RxDataBytes"
+              }
+            },
+            "max_tx": {
+              "max": {
+                "field": "SSIDTable.TxDataBytes"
+              }
+            },
+            "Rx_in_bits": {
+              "bucket_script": {
+                "buckets_path": {
+                  "max_rx": "max_rx"
+                },
+                "script": "(params.max_rx * 8) / 300"
+              }
+            },
+            "Tx_in_bits": {
+              "bucket_script": {
+                "buckets_path": {
+                  "max_tx": "max_tx"
+                },
+                "script": "(params.max_tx * 8) / 300"
+              }
+            },
+            "Rx_throughput": {
+              "serial_diff": {
+                "buckets_path": "Rx_in_bits"
+              }
+            },
+            "Tx_throughput": {
+              "serial_diff": {
+                "buckets_path": "Tx_in_bits"
+              }
+            },
+            "AP_group": {
+              "terms": {
+                "field": "WirelessTable.AP_Name.keyword"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "title": "Count unique users per SSID in the last 24 hours",
+    "logic": "The query filters logs from the last 24 hours and counts unique users (MAC addresses) for each SSID group.",
+    "content": {
+      "summary": "Analyze unique user counts per SSID (BSSID) over the last 24 hours.",
+      "metrics": [
+        "cardinality (count of unique MAC addresses)"
+      ],
+      "filters": [
+        {
+          "field": "@timestamp",
+          "condition": "range",
+          "gte": "now-24h",
+          "lte": "now",
+          "time_zone": "+08:00"
+        }
+      ],
+      "groupings": [
+        "SSIDTable.BSSID.keyword"
+      ],
+      "time_granularity": [],
+      "methodology": []
+    },
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": "now-24h",
+                  "lte": "now",
+                  "time_zone": "+08:00"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "group_by_ap": {
+          "terms": {
+            "field": "SSIDTable.BSSID.keyword"
+          },
+          "aggs": {
+            "unique_users_count": {
+              "cardinality": {
+                "field": "ClientTable.MACAddress.keyword"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "title": "Daily unique Wi-Fi users per site for customer 'Sasa'",
+    "logic": "The query filters data for the customer 'Sasa', groups it by site and day, and calculates the number of unique Wi-Fi users per day for each site.",
+    "content": {
+      "summary": "Analyzing daily unique Wi-Fi users for each site associated with the customer 'Sasa'.",
+      "metrics": [
+        "cardinality of ClientTable.MACAddress.keyword (unique Wi-Fi users)"
+      ],
+      "filters": [
+        "customer.keyword = 'Sasa'"
+      ],
+      "groupings": [
+        "site.keyword",
+        "day (@timestamp)"
+      ],
+      "time_granularity": [
+        "day (calendar_interval)"
+      ],
+      "methodology": [
+        "cardinality aggregation for unique count"
+      ]
+    },
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "term": {
+                "customer.keyword": "Sasa"
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "group_by_site": {
+          "terms": {
+            "field": "site.keyword"
+          },
+          "aggs": {
+            "group_by_day": {
+              "date_histogram": {
+                "field": "@timestamp",
+                "calendar_interval": "day",
+                "time_zone": "Asia/Hong_Kong"
+              },
+              "aggs": {
+                "unique_wifi_users": {
+                  "cardinality": {
+                    "field": "ClientTable.MACAddress.keyword"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "title": "Daily unique Wi-Fi users per site within a specific date range",
+    "logic": "The query filters data within a specified date range and groups results by site and day to calculate the number of unique Wi-Fi users per day for each site.",
+    "content": {
+      "summary": "Analyzing unique Wi-Fi users per site on a daily basis.",
+      "metrics": [
+        "cardinality of ClientTable.MACAddress.keyword (unique Wi-Fi users)"
+      ],
+      "filters": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": "2025-08-20T00:00:00+08:00",
+              "lte": "2025-08-27T23:59:59+08:00",
+              "format": "strict_date_optional_time"
+            }
+          }
+        }
+      ],
+      "groupings": [
+        "site.keyword",
+        "daily intervals based on @timestamp"
+      ],
+      "time_granularity": [
+        "day"
+      ],
+      "methodology": []
+    },
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": "2025-08-20T00:00:00+08:00",
+                  "lte": "2025-08-27T23:59:59+08:00",
+                  "format": "strict_date_optional_time"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "by_site": {
+          "terms": {
+            "field": "site.keyword"
+          },
+          "aggs": {
+            "by_day": {
+              "date_histogram": {
+                "field": "@timestamp",
+                "calendar_interval": "day",
+                "time_zone": "Asia/Hong_Kong"
+              },
+              "aggs": {
+                "unique_wifi_users": {
+                  "cardinality": {
+                    "field": "ClientTable.MACAddress.keyword"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+]

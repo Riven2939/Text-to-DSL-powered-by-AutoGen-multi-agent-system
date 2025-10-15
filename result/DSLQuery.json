@@ -1,0 +1,56 @@
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": "now-7d/d",
+              "lte": "now/d",
+              "time_zone": "+08:00",
+              "format": "yyyy-MM-dd'T'HH:mm:ss"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "by_access_point": {
+      "terms": {
+        "field": "availabilityName.keyword",
+        "size": 50
+      },
+      "aggs": {
+        "by_ssid": {
+          "terms": {
+            "field": "data.SSID.ssidName.keyword",
+            "size": 50
+          },
+          "aggs": {
+            "daily_buckets": {
+              "date_histogram": {
+                "field": "@timestamp",
+                "calendar_interval": "day",
+                "time_zone": "+08:00"
+              },
+              "aggs": {
+                "max_active_devices_per_day": {
+                  "max": {
+                    "field": "data.stats.onlineUsers"
+                  }
+                }
+              }
+            },
+            "max_active_devices": {
+              "max_bucket": {
+                "buckets_path": "daily_buckets>max_active_devices_per_day"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

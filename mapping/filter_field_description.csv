@@ -1,0 +1,38 @@
+Field,Explanation,Calculation Method and Data Extraction Method,FieldSetID
+@timestamp,Preferred field for all time-based filters and aggregations. Use this when time is involved. Use HONG KONG time as default.,,0.0
+availabilityName,the available name of Access Point device. Must use grouping when working with InterfaceTable data,Use cardinality (Unique Count) to count how many unique devices are connecting to xxx (xxx depends on the grouping),0.0
+availabilityStatus,"Indicate the status of the device ( up=1 , down= 0)",Can be used directly without any calculation.Use average to calculate the online rate of a device,0.0
+devicedesc,Store what device is being used. Must be filtered as devicedesc.keyword: Firewall when working on InterfaceTable. ,,0.0
+site,Store all the name of possible site. ,,0.0
+InterfaceTable.Description,"Indicate what the device's port is connecting to. Must be filter as ""InterfaceTable.Description.keyword"": ""Internet"" when working on InterfaceTable data or Firewall data.",,0.0
+InterfaceTable.InError,,,0.0
+InterfaceTable.InTraffic,Cumulative inbound network traffic or bandwith usage of the network (unit: byte),"Multiply the max value in the time interval by 8 to convert bytes to bits, then divide by the time interval(in seconds), then **apply serial_diff** to find the avg network traffic of the period of time ",0.0
+InterfaceTable.OutError,,,0.0
+InterfaceTable.OutTraffic,Cumulative outbound network traffic or bandwith usage of the network (unit: byte),"Multiply the max value in the time interval by 8 to convert bytes to bits, then divide by the time interval(in seconds), then **apply serial_diff** to find the avg network traffic of the period of time ",0.0
+InterfaceTable.Status,"Indicate the device's port status is up or down (up=1,down=2)",Can be used directly without any calculation,0.0
+Memory_Utilization,Store the percentage of the memory usage (18.0 means 18%),Use the max value within the time interval to get the memory usage rate of the device,0.0
+data.clients.[...],"Client-side or User-side data (per device). should apply filter """"mode.keyword"""" as """"site"""" when using",,1.0
+data.networkTraffic.[...],"Site-level data (aggregated per site). should apply filter """"mode.keyword"""" as """"SiteNetworkTraffic"""" when using",,1.0
+data.stats.[...],"AP-side data (per access point). should apply filter """"mode.keyword"""" as """"device"""" when using",,1.0
+mode,"Store the mode of the data (device or site). When using data.stats.[...], apply filter as ""device"" ; for data.clients.[...], apply filter as ""site"".",This field is only used for filtering,1.0
+data.clients.account,The user account identifier. Used to distinguish unique users.,Used cardinality (Unique Count) to count how many users connected. Need to derive by this field when deal with Per-user case. use (number of Unique Count * 5mins) to get total duration/usage of all user,1.0
+data.clients.downwardSpeed,Inbound network traffic to a [client's device] (unit: bit per sec),Use the max value within the time interval to get inbound network traffic(bit per second),1.0
+data.clients.onlineStatus,"Indicates the client’s connection status: 0 or 1 = Online, 2 = Offline.",Can be used directly without any calculation,1.0
+data.clients.packageLossRate,Store the packet loss rate between the access point and the user device (62.0 means 62%),Use the max value within the time interval to get package loss rate,1.0
+data.clients.rssi,Signal strength detected by the [client device] from the access point.(0 is strongest and -120 is weakest),Use the max value within the time interval to get the signal strength,1.0
+data.clients.signalNoiseRatio,"ratio of the signal power to the noise power(Higher values mean a cleaner, higher-quality signal)",Use the max value within the time interval to get the signal noise ratio,1.0
+data.clients.ssid,The SSID (WiFi network name) that the client is connected to,,1.0
+data.clients.upwardSpeed,outbound network traffic to a [client's device] (unit: bit per sec),Use the max value within the time interval to get the outbound network traffic(bits per second),1.0
+data.clients.cumulativeTraffic, The cumulative total or overall traffic for each client, apply serial_diff to calculate the overall or total traffic for each client.,1.0
+,,,1.0
+data.networkTraffic.downlinkRate,All Access Point total Inbound Traffic of each site(Unit is bit per sec),Use the max value within the time interval to get the inbound network traffic(bits per second),1.0
+data.networkTraffic.uplinkRate,All Access Point total outbound Traffic of each site(Unit is bit per sec),Use the max value within the time interval to get the outbound network traffic(bits per second),1.0
+data.SSID.enable,Indicates whether the Wi-Fi SSID (Service Set Identifier) is currently enabled (active) and broadcasting,,1.0
+data.SSID.ssidName,Indicates the wifi or SSID name that users can see. ,,1.0
+data.SSID.terminalNum,Indicates the number of active client devices currently connected to the specified Wi-Fi SSID name (Service Set Identifier).,Use the max value within the time interval to get the number of users connecting the SSID,1.0
+data.stats.dwonwardSpeed,Inbound network traffic to an Access Point (unit: bit per sec),Use the max value within the time interval to get the inbound network traffic (bits per second),1.0
+data.stats.memoryRate,Percentage of the access point's system memory currently in use (0 - 100 %).,Use the max value within the time interval to get the memory usage rate of the access point,1.0
+data.stats.onlineUsers,Number of client devices actively associated with—and authenticated on—the access point at the moment of sampling,Use the max value to get the most number of users connecting the AP  within the time interval ,1.0
+data.stats.upwardSpeed,Outbound network traffic to an Access Point (unit: bit per sec),Use the max value within the time interval to get the outbound network traffic (bits per second),1.0
+data.status,"Status of the device (0=normal, 1=alarm, 2=offline, 3=unregistered)",Can be used directly without any calculation,1.0
+data.stats.traffic, Not cumulative value. State the overall or total traffic for each Access Point, Use to calculate the overall or total traffic for each Access Point.,1.0

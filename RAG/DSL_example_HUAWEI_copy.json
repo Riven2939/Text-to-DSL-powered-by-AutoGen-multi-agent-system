@@ -1,0 +1,838 @@
+[
+  {
+    "title": "firewall bandwidth usage report per 5 mins for site SCTC",
+    "description": "Tracks the SCTC site’s Internet-facing firewall link, showing five-minute inbound/outbound throughput in Mbps and whether it’s rising or falling versus the previous slice. Great for spotting peaks, sudden bursts, quiet periods, or unexplained slowdowns—useful for capacity planning and incident review.",
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": 1753977600000,
+                  "lte": 1756655999999,
+                  "format": "epoch_millis"
+                }
+              }
+            },
+            {
+              "term": {
+                "site.keyword": "SCTC"
+              }
+            },
+            {
+              "term": {
+                "devicedesc.keyword": "Firewall"
+              }
+            },
+            {
+              "term": {
+                "InterfaceTable.Description.keyword": "Internet"
+              }
+            },
+            {
+              "bool": {
+                "must_not": {
+                  "exists": {
+                    "field": "command"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "by_time": {
+          "date_histogram": {
+            "field": "@timestamp",
+            "fixed_interval": "5m",
+            "time_zone": "Asia/Hong_Kong",
+            "format": "epoch_millis",
+            "min_doc_count": 0,
+            "extended_bounds": {
+              "min": 1753977600000,
+              "max": 1756655999999
+            }
+          },
+          "aggs": {
+            "out_mbps": {
+              "max": {
+                "field": "InterfaceTable.OutTraffic",
+                "script": {
+                  "source": "_value / (5 * 60 / 8)"
+                }
+              }
+            },
+            "in_mbps": {
+              "max": {
+                "field": "InterfaceTable.InTraffic",
+                "script": {
+                  "source": "_value / (5 * 60 / 8)"
+                }
+              }
+            },
+            "out_diff": {
+              "serial_diff": {
+                "buckets_path": "out_mbps",
+                "lag": 1
+              }
+            },
+            "in_diff": {
+              "serial_diff": {
+                "buckets_path": "in_mbps",
+                "lag": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "content": {
+      "summary": "",
+      "metrics": [],
+      "filters": [],
+      "groupings": [],
+      "time_granularity": [],
+      "methodology": []
+    },
+    "logic": "-\tFilter by time range, site=SCTC, device=Firewall, interface=Internet, exclude records with command field.\n\t- Aggregate data in 5-minute intervals (@timestamp).\n\t-\tFor each interval, compute max inbound/outbound traffic converted to Mbps using the formula:_value / (5 * 60 / 8)\n\t-\tCompute the serial difference from previous interval for inbound/outbound traffic.",
+    "relevant_fields": "@timestamp, site.keyword, devicedesc.keyword, InterfaceTable.Description.keyword, command (used for exclusion), InterfaceTable.OutTraffic, InterfaceTable.InTraffic",
+    "note": "The script converts raw traffic data assumed to be in bytes per 5 minutes into Mbps.",
+    "wifi_brand": "HUAWEI"
+  },
+  {
+    "title": "Concurrent Users per SSID per hour for site 828",
+    "description": "Monitors the 828 site’s Wi-Fi at the SSID level, broken down by device. For each enabled SSID, it shows the hourly peak number of connected terminals (Hong Kong time). Use it to spot which SSIDs are busiest, compare load across devices, see daily usage rhythms, and catch unusual drops that may signal outages or misconfiguration. Because it reports the hourly maximum, values reflect peak occupancy rather than average load—great for capacity planning and SSID tuning",
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": 1753977600000,
+                  "lte": 1756655999999,
+                  "format": "epoch_millis"
+                }
+              }
+            },
+            {
+              "term": {
+                "site.keyword": "828"
+              }
+            },
+            {
+              "term": {
+                "mode.keyword": "device"
+              }
+            },
+            {
+              "term": {
+                "data.SSID.enable": true
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "by_availability": {
+          "terms": {
+            "field": "availabilityName.keyword",
+            "size": 100
+          },
+          "aggs": {
+            "by_ssid": {
+              "terms": {
+                "field": "data.SSID.ssidName.keyword",
+                "size": 50
+              },
+              "aggs": {
+                "by_time": {
+                  "date_histogram": {
+                    "field": "@timestamp",
+                    "fixed_interval": "1h",
+                    "time_zone": "Asia/Hong_Kong",
+                    "format": "epoch_millis",
+                    "min_doc_count": 0,
+                    "extended_bounds": {
+                      "min": 1753977600000,
+                      "max": 1756655999999
+                    }
+                  },
+                  "aggs": {
+                    "terminal_count_max": {
+                      "max": {
+                        "field": "data.SSID.terminalNum"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "logic": "Filters:\n    •\tTime range (@timestamp)\n    •\tsite.keyword = “828”\n    •\tmode.keyword = “device”\n    •\tdata.SSID.enable = true (only enabled SSIDs)\n  Aggregations:\n    •\tGroup by device name (availabilityName.keyword)\n    •\tThen by SSID name (data.SSID.ssidName.keyword)\n    •\tThen by hour (date_histogram)\n    •\tGet the max terminal count (data.SSID.terminalNum) per hour",
+    "relevant_fields": "@timestamp, site.keyword, mode.keyword, availabilityName.keyword, data.SSID.ssidName.keyword, data.SSID.terminalNum, data.SSID.enable",
+    "note": "",
+    "wifi_brand": "HUAWEI"
+  },
+  {
+    "title": "Daily Average & Max Bandwidth per site",
+    "description": "Tracks the SCTC site’s site-level WAN traffic on a daily timeline (Hong Kong time). For each day it reports the peak uplink/downlink rate and the average uplink/downlink rate, giving both burst capacity and typical load. Use it to spot congestion windows and headroom, compare weekdays vs. weekends, validate optimizations, and plan upgrades. Because it’s site-level, this reflects the total Internet link behavior—not per-AP, SSID, or client views.",
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": 1753977600000,
+                  "lte": 1756655999999,
+                  "format": "epoch_millis"
+                }
+              }
+            },
+            {
+              "term": {
+                "mode.keyword": "SiteNetworkTraffic"
+              }
+            },
+            {
+              "term": {
+                "site.keyword": "SCTC"
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "8": {
+          "date_histogram": {
+            "field": "@timestamp",
+            "min_doc_count": "0",
+            "extended_bounds": {
+              "min": 1753977600000,
+              "max": 1756655999999
+            },
+            "format": "epoch_millis",
+            "time_zone": "Asia/Hong_Kong",
+            "fixed_interval": "1d"
+          },
+          "aggs": {
+            "1": {
+              "max": {
+                "field": "data.networkTraffic.uplinkRate"
+              }
+            },
+            "9": {
+              "max": {
+                "field": "data.networkTraffic.downlinkRate"
+              }
+            },
+            "10": {
+              "avg": {
+                "field": "data.networkTraffic.uplinkRate"
+              }
+            },
+            "11": {
+              "avg": {
+                "field": "data.networkTraffic.downlinkRate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "logic": "Filters:\n    •\tTime range (@timestamp)\n    •\tmode.keyword = “SiteNetworkTraffic”\n    •\tsite.keyword = “SCTC”\n  Aggregations:\n    •\tGroup data by day (date_histogram, 1-day interval, Asia/Hong_Kong timezone)\n    •\tFor each day:\n    •\tMax uplink rate: data.networkTraffic.uplinkRate\n    •\tMax downlink rate: data.networkTraffic.downlinkRate\n    •\tAverage uplink rate\n    •\tAverage downlink rate",
+    "relevant_fields": "@timestamp, site.keyword, mode.keyword, data.networkTraffic.uplinkRate, data.networkTraffic.downlinkRate",
+    "note": "",
+    "wifi_brand": "HUAWEI"
+  },
+  {
+    "title": "Daily average duration per user under specific SSID at site SCTC",
+    "description": "Measures daily engagement on the “HKJC Branch  Free WiFi” SSID at the SCTC site. For each day (Hong Kong time) it shows daily active users (unique accounts) and an average connection time per user derived from 5-minute presence sampling. Use it to track adoption and stickiness, compare weekdays vs. weekends, and catch unusual drops that may signal outages or policy changes.",
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": 1753977600000,
+                  "lte": 1756655999999,
+                  "format": "epoch_millis"
+                }
+              }
+            },
+            {
+              "terms": {
+                "data.clients.onlineStatus": [
+                  0,
+                  1
+                ]
+              }
+            },
+            {
+              "term": {
+                "site.keyword": "SCTC"
+              }
+            },
+            {
+              "term": {
+                "data.clients.ssid.keyword": "HKJC Branch  Free WiFi"
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "9": {
+          "terms": {
+            "field": "data.clients.ssid.keyword",
+            "size": 500,
+            "order": {
+              "_key": "desc"
+            },
+            "min_doc_count": 1
+          },
+          "aggs": {
+            "8": {
+              "date_histogram": {
+                "field": "@timestamp",
+                "fixed_interval": "1d",
+                "time_zone": "Asia/Hong_Kong",
+                "format": "epoch_millis",
+                "min_doc_count": 0,
+                "extended_bounds": {
+                  "min": 1753977600000,
+                  "max": 1756655999999
+                }
+              },
+              "aggs": {
+                "10": {
+                  "cardinality": {
+                    "field": "data.clients.account.keyword"
+                  }
+                },
+                "11": {
+                  "bucket_script": {
+                    "buckets_path": {
+                      "var1": "_count",
+                      "var2": "10"
+                    },
+                    "script": "(params.var1 * 5) / params.var2"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "logic": "- Filter by site = SCTC\n- Filter by SSID = HKJC Branch Free WiFi\n- Filter client status in [0, 1]\n- Group by SSID → Group by day\n- For each day:\n    - Count number of records (online sessions)\n    - Count distinct users (account.keyword)\n    - Use (record_count * 5) / user_count to compute average minutes",
+    "relevant_fields": "@timestamp, site.keyword, data.clients.ssid.keyword, data.clients.account.keyword, data.clients.onlineStatus",
+    "note": "Each record equals 5 minutes.",
+    "wifi_brand": "HUAWEI"
+  },
+  {
+    "title": "Average upward and downward speed per user, aggregated daily by site.",
+    "description": "Compares sites for the “HKJC Branch  Free WiFi” SSID on a daily timeline (Hong Kong time). For each site × day, it reports daily active users (unique accounts) and average per-user data volume (uplink + downlink), derived by converting 5-minute speed samples into traffic and summing over the day. Use it to see which sites consume the most data, spot spikes or slowdowns, track growth/retention, and plan capacity.",
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": 1753977600000,
+                  "lte": 1756655999999,
+                  "format": "epoch_millis"
+                }
+              }
+            },
+            {
+              "exists": {
+                "field": "data.clients.account.keyword"
+              }
+            },
+            {
+              "terms": {
+                "data.clients.onlineStatus": [
+                  0,
+                  1
+                ]
+              }
+            },
+            {
+              "term": {
+                "data.clients.ssid.keyword": "HKJC Branch  Free WiFi"
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "3": {
+          "terms": {
+            "field": "site.keyword",
+            "size": 500,
+            "order": {
+              "_key": "asc"
+            },
+            "min_doc_count": 1
+          },
+          "aggs": {
+            "2": {
+              "date_histogram": {
+                "field": "@timestamp",
+                "fixed_interval": "1d",
+                "time_zone": "Asia/Hong_Kong",
+                "format": "epoch_millis",
+                "min_doc_count": 0,
+                "extended_bounds": {
+                  "min": 1753977600000,
+                  "max": 1756655999999
+                }
+              },
+              "aggs": {
+                "1": {
+                  "cardinality": {
+                    "field": "data.clients.account.keyword"
+                  }
+                },
+                "4": {
+                  "sum": {
+                    "field": "data.clients.upwardSpeed",
+                    "script": {
+                      "source": "_value * 300 / 8"
+                    }
+                  }
+                },
+                "5": {
+                  "sum": {
+                    "field": "data.clients.downwardSpeed",
+                    "script": {
+                      "source": "_value * 300 / 8"
+                    }
+                  }
+                },
+                "6": {
+                  "bucket_script": {
+                    "buckets_path": {
+                      "var_up": "4",
+                      "var_down": "5"
+                    },
+                    "script": "params.var_up + params.var_down"
+                  }
+                },
+                "7": {
+                  "bucket_script": {
+                    "buckets_path": {
+                      "var_sum": "6",
+                      "var_count": "1"
+                    },
+                    "script": "params.var_sum / params.var_count"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "logic": "Filters:\n    •\tTime range (@timestamp)\n    •\tdata.clients.account.keyword must exist (only valid users)\n    •\tdata.clients.onlineStatus in [0, 1] (active or inactive)\n    •\tdata.clients.ssid.keyword = “HKJC Branch  Free WiFi”\n  Aggregations:\n    •\tGroup by site (site.keyword)\n    •\tThen by day (date_histogram, 1d interval, Asia/Hong_Kong timezone)\n    •\tCount unique users per day (cardinality on account.keyword)\n    •\tSum upwardSpeed and downwardSpeed, converting to MB using (_value * 300 / 8)\n  (300 seconds = 5 minutes; convert bits to bytes to MB)\n    •\tAdd uplink + downlink to get total traffic per day\n    •\tDivide total traffic by user count to get average traffic per user (MB)",
+    "relevant_fields": "@timestamp, site.keyword, data.clients.account.keyword, data.clients.onlineStatus, data.clients.ssid.keyword, data.clients.upwardSpeed, data.clients.downwardSpeed",
+    "note": "Each record represents a 5-minute interval. The script converts bit rates to total MB per interval, then averages over the number of users per day.",
+    "wifi_brand": "HUAWEI"
+  },
+  {
+    "title": "WIFI unique online users per site daily for last 7 days",
+    "description": "Tracks daily active users (unique accounts) per site across all locations, using client presence signals (online/offline) and a daily timeline in Hong Kong time. Use it to compare adoption across sites, spot growth or sudden drops, and detect potential outages or onboarding events. Counts reflect distinct accounts seen that day—good for footprint and trend monitoring.",
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": 1753977600000,
+                  "lte": 1756655999999,
+                  "format": "epoch_millis"
+                }
+              }
+            },
+            {
+              "terms": {
+                "data.clients.onlineStatus": [
+                  0,
+                  1
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "3": {
+          "terms": {
+            "field": "site.keyword",
+            "size": 500,
+            "order": {
+              "_key": "asc"
+            },
+            "min_doc_count": 1
+          },
+          "aggs": {
+            "2": {
+              "date_histogram": {
+                "field": "@timestamp",
+                "fixed_interval": "1d",
+                "time_zone": "Asia/Hong_Kong",
+                "format": "epoch_millis",
+                "min_doc_count": 0,
+                "extended_bounds": {
+                  "min": 1753977600000,
+                  "max": 1756655999999
+                }
+              },
+              "aggs": {
+                "1": {
+                  "cardinality": {
+                    "field": "data.clients.account.keyword"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "logic": "Filters:\n    •\tTime range (@timestamp)\n    •\tdata.clients.onlineStatus in [0, 1] (active sessions)\n  Aggregations:\n    •\tGroup by site (site.keyword)\n    •\tThen by day (date_histogram, 1-day interval, Asia/Hong_Kong timezone)\n    •\tCount distinct users per day using cardinality on data.clients.account.keyword",
+    "relevant_fields": "@timestamp, site.keyword, data.clients.onlineStatus, data.clients.account.keyword",
+    "note": "This query provides the number of unique users per day at each site, considering only records with online status 0 or 1.",
+    "wifi_brand": "HUAWEI"
+  },
+  {
+    "title": "Total traffic per Access Point",
+    "description": "Shows per-device hourly traffic for all access point. It converts each device’s cumulative traffic counter into hourly data volume and clips negative jumps (from counter resets) to zero, so you see clean per-hour usage. Use it to compare which devices are the heaviest talkers, spot spikes or anomalies, and verify after-change effects at the device level.",
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": 1754205478604,
+                  "lte": 1754291878605,
+                  "format": "epoch_millis"
+                }
+              }
+            },
+            {
+              "term": {
+                "mode": "device"
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "device": {
+          "terms": {
+            "field": "availabilityName.keyword",
+            "size": 100
+          },
+          "aggs": {
+            "per_hour": {
+              "date_histogram": {
+                "field": "@timestamp",
+                "fixed_interval": "1h",
+                "format": "epoch_millis",
+                "time_zone": "Asia/Hong_Kong",
+                "min_doc_count": 0,
+                "extended_bounds": {
+                  "min": 1754205478604,
+                  "max": 1754291878605
+                }
+              },
+              "aggs": {
+                "1": {
+                  "max": {
+                    "field": "data.stats.traffic"
+                  }
+                },
+                "4": {
+                  "serial_diff": {
+                    "buckets_path": "1",
+                    "lag": 1
+                  }
+                },
+                "5": {
+                  "bucket_script": {
+                    "buckets_path": {
+                      "var1": "4"
+                    },
+                    "script": "params.var1 >= 0 ? params.var1 : 0"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "logic": "Filters:\n    •\tTime range (@timestamp)\n    •\tmode = \"device\"\n  Aggregations:\n    •\tGroup by device (availabilityName.keyword)\n    •\tThen by hour (date_histogram, 1h, Asia/Hong_Kong timezone)\n    •\tGet the maximum traffic value per hour (data.stats.traffic)\n    •\tCompute serial difference with previous hour (serial_diff)\n    •\tApply a bucket script to remove negative deltas:\n  Only keep values ≥ 0, replace negatives with 0",
+    "relevant_fields": "@timestamp, mode, availabilityName.keyword, data.stats.traffic",
+    "note": "If traffic decreases (i.e. counter reset), the negative difference is ignored (set to 0) to ensure only valid upward traffic is counted.",
+    "wifi_brand": "HUAWEI"
+  },
+  {
+    "title": "Traffic per client for site 102",
+    "description": "Analyzes per-user hourly data usage at site 102. For each account, it converts the client’s cumulative-traffic counter into hourly increments, letting you see who’s consuming data each hour and how usage changes over time. Great for spotting heavy users, spikes tied to events, fairness issues, or anomalies at the user level.",
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": 1754206075207,
+                  "lte": 1754292475207,
+                  "format": "epoch_millis"
+                }
+              }
+            },
+            {
+              "term": {
+                "site.keyword": "102"
+              }
+            },
+            {
+              "term": {
+                "mode.keyword": "site"
+              }
+            },
+            {
+              "range": {
+                "data.clients.cumulativeTraffic": {
+                  "gt": 0
+                }
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "by_site": {
+          "terms": {
+            "field": "site.keyword",
+            "size": 100
+          },
+          "aggs": {
+            "by_account": {
+              "terms": {
+                "field": "data.clients.account.keyword",
+                "size": 1000
+              },
+              "aggs": {
+                "per_hour": {
+                  "date_histogram": {
+                    "field": "@timestamp",
+                    "fixed_interval": "1h",
+                    "format": "epoch_millis",
+                    "min_doc_count": 0,
+                    "extended_bounds": {
+                      "min": 1754206075207,
+                      "max": 1754292475207
+                    }
+                  },
+                  "aggs": {
+                    "max_traffic": {
+                      "max": {
+                        "field": "data.clients.cumulativeTraffic"
+                      }
+                    },
+                    "traffic_diff": {
+                      "serial_diff": {
+                        "buckets_path": "max_traffic",
+                        "lag": 1
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "logic": "Filters:\n  •\tTime range (@timestamp)\n  •\tsite = “102”\n  •\tmode = “site”\n  •\tdata.clients.cumulativeTraffic > 0\n\n  Aggregations:\n  •\tGroup by site (site.keyword)\n  •\tThen by user (data.clients.account.keyword)\n  •\tThen by hour (date_histogram, 1h)\n  •\tGet the maximum cumulative traffic per hour (data.clients.cumulativeTraffic)\n  •\tCompute serial difference with previous hour (serial_diff)",
+    "relevant_fields": "@timestamp, site.keyword, mode, data.clients.account.keyword, data.clients.cumulativeTraffic",
+    "note": "",
+    "wifi_brand": "HUAWEI"
+  },
+  {
+    "title": "number of clients devices were connected to each access point daily during last 7 days.",
+    "description": "Tracks client load on access point HKJC-102-AP01 at 5-minute granularity. For each interval it reports the total number of connected terminals (summed across all SSIDs on that AP). Use it to spot crowding and quiet periods, check before/after changes, and identify hotspots for load balancing or capacity planning. This is an AP-level view (not per-SSID), ideal for operational monitoring and anomaly detection.",
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": 1754377490492,
+                  "lte": 1754463890493,
+                  "format": "epoch_millis"
+                }
+              }
+            },
+            {
+              "term": {
+                "mode": "device"
+              }
+            },
+            {
+              "term": {
+                "data.name.keyword": "HKJC-102-AP01"
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "by_name": {
+          "terms": {
+            "field": "data.name.keyword",
+            "size": 1000
+          },
+          "aggs": {
+            "time_buckets": {
+              "date_histogram": {
+                "field": "@timestamp",
+                "min_doc_count": 0,
+                "extended_bounds": {
+                  "min": 1754377490492,
+                  "max": 1754463890493
+                },
+                "format": "epoch_millis",
+                "fixed_interval": "5m"
+              },
+              "aggs": {
+                "terminal_sum": {
+                  "sum": {
+                    "field": "data.SSID.terminalNum"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "logic": "Filters:\n  •\tTime range (@timestamp)\n  •\tmode = “device”\n  •\tdata.name = “HKJC-102-AP01”\n\n  Aggregations:\n  •\tGroup by device name (data.name.keyword)\n  •\tThen by time (date_histogram, 5m)\n  •\tSum of terminal count per interval (data.SSID.terminalNum)",
+    "relevant_fields": "@timestamp, mode, data.name.keyword, data.SSID.terminalNum",
+    "note": "This query calculates the total number of terminals connected to a specific AP (“HKJC-102-AP01”) in 5-minute intervals by summing the data.SSID.terminalNum field over time.\n\nARUBA:",
+    "wifi_brand": "HUAWEI"
+  },
+  {
+    "title": "Analyze max active devices per hour by access point and SSID for the past 7 days",
+    "logic": "The query filters data for a specific site and a 7-day time range, then groups results by access point, SSID, and hourly intervals to compute the maximum number of active devices.",
+    "content": {
+      "summary": "Analyzing active device counts grouped by access point, SSID, and hourly intervals.",
+      "metrics": [
+        "max_active_devices"
+      ],
+      "filters": [
+        {
+          "term": {
+            "site.keyword": 828
+          }
+        },
+        {
+          "range": {
+            "@timestamp": {
+              "gte": "now-7d/d",
+              "lt": "now/d"
+            }
+          }
+        }
+      ],
+      "groupings": [
+        "availabilityName.keyword",
+        "data.SSID.ssidName.keyword",
+        "@timestamp (hourly)"
+      ],
+      "time_granularity": [
+        "hour"
+      ],
+      "methodology": []
+    },
+    "dsl": {
+      "size": 0,
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "term": {
+                "site.keyword": 828
+              }
+            },
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": "now-7d/d",
+                  "lt": "now/d"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "aggs": {
+        "group_by_access_point": {
+          "terms": {
+            "field": "availabilityName.keyword",
+            "size": 50
+          },
+          "aggs": {
+            "group_by_ssid": {
+              "terms": {
+                "field": "data.SSID.ssidName.keyword",
+                "size": 50
+              },
+              "aggs": {
+                "group_by_hour": {
+                  "date_histogram": {
+                    "field": "@timestamp",
+                    "calendar_interval": "hour",
+                    "time_zone": "Asia/Hong_Kong"
+                  },
+                  "aggs": {
+                    "max_active_devices": {
+                      "max": {
+                        "field": "data.SSID.terminalNum"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+]

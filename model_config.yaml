@@ -1,0 +1,35 @@
+azure:
+  deployment: gpt-4o
+  model: gpt-4o
+  api_version: 2024-12-01-preview
+  endpoint: https://bnk9.openai.azure.com/
+  api_key: ce8db1ddf4c548eeb72507885186bf4f
+  model_info:
+    json_output: false
+    function_calling: true
+    vision: false
+    family: unknown
+    structured_output: false
+    multiple_system_messages: true
+
+mini:
+  deployment: gpt-4o-mini
+  model: gpt-4o-mini
+  api_version: 2024-12-01-preview
+  endpoint: https://bnk9.openai.azure.com/
+  api_key: ce8db1ddf4c548eeb72507885186bf4f
+  model_info:
+    json_output: false
+    function_calling: true
+    vision: false
+    family: unknown
+    structured_output: false
+    multiple_system_messages: true
+
+
+azure_embedding:
+  deployment: text-embedding-3-small
+  model: text-embedding-3-small
+  api_version: 2024-12-01-preview
+  endpoint: https://bnk9.openai.azure.com/
+  api_key: ce8db1ddf4c548eeb72507885186bf4f

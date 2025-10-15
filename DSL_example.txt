@@ -1,0 +1,1369 @@
+Title:
+bandwidth usage report per 5 mins for site SCTC
+
+DSL:
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": 1753977600000,
+              "lte": 1756655999999,
+              "format": "epoch_millis"
+            }
+          }
+        },
+        {
+          "term": {
+            "site.keyword": "SCTC"
+          }
+        },
+        {
+          "term": {
+            "devicedesc.keyword": "Firewall"
+          }
+        },
+        {
+          "term": {
+            "InterfaceTable.Description.keyword": "Internet"
+          }
+        },
+        {
+          "bool": {
+            "must_not": {
+              "exists": {
+                "field": "command"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "by_time": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "fixed_interval": "5m",
+        "time_zone": "Asia/Hong_Kong",
+        "format": "epoch_millis",
+        "min_doc_count": 0,
+        "extended_bounds": {
+          "min": 1753977600000,
+          "max": 1756655999999
+        }
+      },
+      "aggs": {
+        "out_mbps": {
+          "max": {
+            "field": "InterfaceTable.OutTraffic",
+            "script": {
+              "source": "_value / (5 * 60 / 8)"
+            }
+          }
+        },
+        "in_mbps": {
+          "max": {
+            "field": "InterfaceTable.InTraffic",
+            "script": {
+              "source": "_value / (5 * 60 / 8)"
+            }
+          }
+        },
+        "out_diff": {
+          "serial_diff": {
+            "buckets_path": "out_mbps",
+            "lag": 1
+          }
+        },
+        "in_diff": {
+          "serial_diff": {
+            "buckets_path": "in_mbps",
+            "lag": 1
+          }
+        }
+      }
+    }
+  }
+}
+Logic:
+	-	Filter by time range, site=SCTC, device=Firewall, interface=Internet, exclude records with command field.
+	- Aggregate data in 5-minute intervals (@timestamp).
+	-	For each interval, compute max inbound/outbound traffic converted to Mbps using the formula:_value / (5 * 60 / 8)
+	-	Compute the serial difference from previous interval for inbound/outbound traffic.
+Relevant fields:
+@timestamp, site.keyword, devicedesc.keyword, InterfaceTable.Description.keyword, command (used for exclusion), InterfaceTable.OutTraffic, InterfaceTable.InTraffic
+Note:
+The script converts raw traffic data assumed to be in bytes per 5 minutes into Mbps.
+
+Title:
+Concurrent Users per SSID per hour for site 828 
+
+DSL:
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": 1753977600000,
+              "lte": 1756655999999,
+              "format": "epoch_millis"
+            }
+          }
+        },
+        {
+          "term": {
+            "site.keyword": "828"
+          }
+        },
+        {
+          "term": {
+            "mode.keyword": "device"
+          }
+        },
+        {
+          "term": {
+            "data.SSID.enable": true
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "by_availability": {
+      "terms": {
+        "field": "availabilityName.keyword",
+        "size": 100
+      },
+      "aggs": {
+        "by_ssid": {
+          "terms": {
+            "field": "data.SSID.ssidName.keyword",
+            "size": 50
+          },
+          "aggs": {
+            "by_time": {
+              "date_histogram": {
+                "field": "@timestamp",
+                "fixed_interval": "1h",
+                "time_zone": "Asia/Hong_Kong",
+                "format": "epoch_millis",
+                "min_doc_count": 0,
+                "extended_bounds": {
+                  "min": 1753977600000,
+                  "max": 1756655999999
+                }
+              },
+              "aggs": {
+                "terminal_count_max": {
+                  "max": {
+                    "field": "data.SSID.terminalNum"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+Logic:
+  Filters:
+    •	Time range (@timestamp)
+    •	site.keyword = “828”
+    •	mode.keyword = “device”
+    •	data.SSID.enable = true (only enabled SSIDs)
+  Aggregations:
+    •	Group by device name (availabilityName.keyword)
+    •	Then by SSID name (data.SSID.ssidName.keyword)
+    •	Then by hour (date_histogram)
+    •	Get the max terminal count (data.SSID.terminalNum) per hour
+Relevant fields:
+@timestamp, site.keyword, mode.keyword, availabilityName.keyword, data.SSID.ssidName.keyword, data.SSID.terminalNum, data.SSID.enable
+
+
+Title:
+Daily Average & Max Bandwidth per site 
+
+DSL:
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": 1753977600000,
+              "lte": 1756655999999,
+              "format": "epoch_millis"
+            }
+          }
+        },
+        {
+          "term": {
+            "mode.keyword": "SiteNetworkTraffic"
+          }
+        },
+        {
+          "term": {
+            "site.keyword": "SCTC"
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "8": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "min_doc_count": "0",
+        "extended_bounds": {
+          "min": 1753977600000,
+          "max": 1756655999999
+        },
+        "format": "epoch_millis",
+        "time_zone": "Asia/Hong_Kong",
+        "fixed_interval": "1d"
+      },
+      "aggs": {
+        "1": {
+          "max": {
+            "field": "data.networkTraffic.uplinkRate"
+          }
+        },
+        "9": {
+          "max": {
+            "field": "data.networkTraffic.downlinkRate"
+          }
+        },
+        "10": {
+          "avg": {
+            "field": "data.networkTraffic.uplinkRate"
+          }
+        },
+        "11": {
+          "avg": {
+            "field": "data.networkTraffic.downlinkRate"
+          }
+        }
+      }
+    }
+  }
+}
+Logic:
+  Filters:
+    •	Time range (@timestamp)
+    •	mode.keyword = “SiteNetworkTraffic”
+    •	site.keyword = “SCTC”
+  Aggregations:
+    •	Group data by day (date_histogram, 1-day interval, Asia/Hong_Kong timezone)
+    •	For each day:
+    •	Max uplink rate: data.networkTraffic.uplinkRate
+    •	Max downlink rate: data.networkTraffic.downlinkRate
+    •	Average uplink rate
+    •	Average downlink rate
+Relevant fields:
+@timestamp, site.keyword, mode.keyword, data.networkTraffic.uplinkRate, data.networkTraffic.downlinkRate
+
+Title: 
+Daily average duration per user under specific SSID at site SCTC
+
+DSL:
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": 1753977600000,
+              "lte": 1756655999999,
+              "format": "epoch_millis"
+            }
+          }
+        },
+        {
+          "terms": {
+            "data.clients.onlineStatus": [0, 1]
+          }
+        },
+        {
+          "term": {
+            "site.keyword": "SCTC"
+          }
+        },
+        {
+          "term": {
+            "data.clients.ssid.keyword": "HKJC Branch  Free WiFi"
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "9": {
+      "terms": {
+        "field": "data.clients.ssid.keyword",
+        "size": 500,
+        "order": {
+          "_key": "desc"
+        },
+        "min_doc_count": 1
+      },
+      "aggs": {
+        "8": {
+          "date_histogram": {
+            "field": "@timestamp",
+            "fixed_interval": "1d",
+            "time_zone": "Asia/Hong_Kong",
+            "format": "epoch_millis",
+            "min_doc_count": 0,
+            "extended_bounds": {
+              "min": 1753977600000,
+              "max": 1756655999999
+            }
+          },
+          "aggs": {
+            "10": {
+              "cardinality": {
+                "field": "data.clients.account.keyword"
+              }
+            },
+            "11": {
+              "bucket_script": {
+                "buckets_path": {
+                  "var1": "_count",
+                  "var2": "10"
+                },
+                "script": "(params.var1 * 5) / params.var2"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+Logic:
+- Filter by site = SCTC
+- Filter by SSID = HKJC Branch Free WiFi
+- Filter client status in [0, 1]
+- Group by SSID → Group by day
+- For each day:
+    - Count number of records (online sessions)
+    - Count distinct users (account.keyword)
+    - Use (record_count * 5) / user_count to compute average minutes
+Relevant fields: @timestamp, site.keyword, data.clients.ssid.keyword, data.clients.account.keyword, data.clients.onlineStatus
+Note: Each record equals 5 minutes. 
+
+
+Title:
+Average upward and downward speed per user, aggregated daily by site.
+
+DSL:
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": 1753977600000,
+              "lte": 1756655999999,
+              "format": "epoch_millis"
+            }
+          }
+        },
+        {
+          "exists": {
+            "field": "data.clients.account.keyword"
+          }
+        },
+        {
+          "terms": {
+            "data.clients.onlineStatus": [0, 1]
+          }
+        },
+        {
+          "term": {
+            "data.clients.ssid.keyword": "HKJC Branch  Free WiFi"
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "3": {
+      "terms": {
+        "field": "site.keyword",
+        "size": 500,
+        "order": {
+          "_key": "asc"
+        },
+        "min_doc_count": 1
+      },
+      "aggs": {
+        "2": {
+          "date_histogram": {
+            "field": "@timestamp",
+            "fixed_interval": "1d",
+            "time_zone": "Asia/Hong_Kong",
+            "format": "epoch_millis",
+            "min_doc_count": 0,
+            "extended_bounds": {
+              "min": 1753977600000,
+              "max": 1756655999999
+            }
+          },
+          "aggs": {
+            "1": {
+              "cardinality": {
+                "field": "data.clients.account.keyword"
+              }
+            },
+            "4": {
+              "sum": {
+                "field": "data.clients.upwardSpeed",
+                "script": {
+                  "source": "_value * 300 / 8"
+                }
+              }
+            },
+            "5": {
+              "sum": {
+                "field": "data.clients.downwardSpeed",
+                "script": {
+                  "source": "_value * 300 / 8"
+                }
+              }
+            },
+            "6": {
+              "bucket_script": {
+                "buckets_path": {
+                  "var_up": "4",
+                  "var_down": "5"
+                },
+                "script": "params.var_up + params.var_down"
+              }
+            },
+            "7": {
+              "bucket_script": {
+                "buckets_path": {
+                  "var_sum": "6",
+                  "var_count": "1"
+                },
+                "script": "params.var_sum / params.var_count"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+Logic:
+  Filters:
+    •	Time range (@timestamp)
+    •	data.clients.account.keyword must exist (only valid users)
+    •	data.clients.onlineStatus in [0, 1] (active or inactive)
+    •	data.clients.ssid.keyword = “HKJC Branch  Free WiFi”
+  Aggregations:
+    •	Group by site (site.keyword)
+    •	Then by day (date_histogram, 1d interval, Asia/Hong_Kong timezone)
+    •	Count unique users per day (cardinality on account.keyword)
+    •	Sum upwardSpeed and downwardSpeed, converting to MB using (_value * 300 / 8)
+  (300 seconds = 5 minutes; convert bits to bytes to MB)
+    •	Add uplink + downlink to get total traffic per day
+    •	Divide total traffic by user count to get average traffic per user (MB)
+Relevant fields:
+@timestamp, site.keyword, data.clients.account.keyword, data.clients.onlineStatus, data.clients.ssid.keyword, data.clients.upwardSpeed, data.clients.downwardSpeed
+Note:
+Each record represents a 5-minute interval. The script converts bit rates to total MB per interval, then averages over the number of users per day.
+
+Title:
+WIFI unique online users per site daily for last 7 days
+
+DSL:
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": 1753977600000,
+              "lte": 1756655999999,
+              "format": "epoch_millis"
+            }
+          }
+        },
+        {
+          "terms": {
+            "data.clients.onlineStatus": [0, 1]
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "3": {
+      "terms": {
+        "field": "site.keyword",
+        "size": 500,
+        "order": {
+          "_key": "asc"
+        },
+        "min_doc_count": 1
+      },
+      "aggs": {
+        "2": {
+          "date_histogram": {
+            "field": "@timestamp",
+            "fixed_interval": "1d",
+            "time_zone": "Asia/Hong_Kong",
+            "format": "epoch_millis",
+            "min_doc_count": 0,
+            "extended_bounds": {
+              "min": 1753977600000,
+              "max": 1756655999999
+            }
+          },
+          "aggs": {
+            "1": {
+              "cardinality": {
+                "field": "data.clients.account.keyword"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+Logic:
+  Filters:
+    •	Time range (@timestamp)
+    •	data.clients.onlineStatus in [0, 1] (active sessions)
+  Aggregations:
+    •	Group by site (site.keyword)
+    •	Then by day (date_histogram, 1-day interval, Asia/Hong_Kong timezone)
+    •	Count distinct users per day using cardinality on data.clients.account.keyword
+Relevant fields:
+@timestamp, site.keyword, data.clients.onlineStatus, data.clients.account.keyword
+Note:
+This query provides the number of unique users per day at each site, considering only records with online status 0 or 1.
+
+Title:
+Total traffic per Access Point
+
+DSL:
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": 1754205478604,
+              "lte": 1754291878605,
+              "format": "epoch_millis"
+            }
+          }
+        },
+        {
+          "term": {
+            "mode": "device"
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "device": {
+      "terms": {
+        "field": "availabilityName.keyword",
+        "size": 100
+      },
+      "aggs": {
+        "per_hour": {
+          "date_histogram": {
+            "field": "@timestamp",
+            "fixed_interval": "1h",
+            "format": "epoch_millis",
+            "time_zone": "Asia/Hong_Kong",
+            "min_doc_count": 0,
+            "extended_bounds": {
+              "min": 1754205478604,
+              "max": 1754291878605
+            }
+          },
+          "aggs": {
+        "1": {
+          "max": {
+            "field": "data.stats.traffic"
+          }
+        },
+        "4": {
+          "serial_diff": {
+            "buckets_path": "1",
+            "lag": 1
+          }
+        },
+        "5": {
+          "bucket_script": {
+            "buckets_path": {
+              "var1": "4"
+            },
+            "script": "params.var1 >= 0 ? params.var1 : 0"
+          }
+        }
+      }
+        }
+      }
+    }
+  }
+}
+Logic:
+  Filters:
+    •	Time range (@timestamp)
+    •	mode = "device"
+  Aggregations:
+    •	Group by device (availabilityName.keyword)
+    •	Then by hour (date_histogram, 1h, Asia/Hong_Kong timezone)
+    •	Get the maximum traffic value per hour (data.stats.traffic)
+    •	Compute serial difference with previous hour (serial_diff)
+    •	Apply a bucket script to remove negative deltas:
+  Only keep values ≥ 0, replace negatives with 0
+Relevant fields:
+@timestamp, mode, availabilityName.keyword, data.stats.traffic
+Note:
+If traffic decreases (i.e. counter reset), the negative difference is ignored (set to 0) to ensure only valid upward traffic is counted.
+
+Title:
+Traffic per client for site 102
+
+DSL:
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": 1754206075207,
+              "lte": 1754292475207,
+              "format": "epoch_millis"
+            }
+          }
+        },
+        {
+          "term": {
+            "site.keyword": "102"
+          }
+        },
+        {
+          "term": {
+            "mode.keyword": "site"
+          }
+        },
+        {
+          "range": {
+            "data.clients.cumulativeTraffic": {
+              "gt": 0
+            }
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "by_site": {
+      "terms": {
+        "field": "site.keyword",
+        "size": 100
+      },
+      "aggs": {
+        "by_account": {
+          "terms": {
+            "field": "data.clients.account.keyword",
+            "size": 1000
+          },
+          "aggs": {
+            "per_hour": {
+              "date_histogram": {
+                "field": "@timestamp",
+                "fixed_interval": "1h",
+                "format": "epoch_millis",
+                "min_doc_count": 0,
+                "extended_bounds": {
+                  "min": 1754206075207,
+                  "max": 1754292475207
+                }
+              },
+              "aggs": {
+                "max_traffic": {
+                  "max": {
+                    "field": "data.clients.cumulativeTraffic"
+                  }
+                },
+                "traffic_diff": {
+                  "serial_diff": {
+                    "buckets_path": "max_traffic",
+                    "lag": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+Logic:
+  Filters:
+  •	Time range (@timestamp)
+  •	site = “102”
+  •	mode = “site”
+  •	data.clients.cumulativeTraffic > 0
+
+  Aggregations:
+  •	Group by site (site.keyword)
+  •	Then by user (data.clients.account.keyword)
+  •	Then by hour (date_histogram, 1h)
+  •	Get the maximum cumulative traffic per hour (data.clients.cumulativeTraffic)
+  •	Compute serial difference with previous hour (serial_diff)
+
+Relevant fields:
+@timestamp, site.keyword, mode, data.clients.account.keyword, data.clients.cumulativeTraffic
+
+Title:
+number of clients devices were connected to each access point daily during last 7 days.
+
+DSL:
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": 1754377490492,
+              "lte": 1754463890493,
+              "format": "epoch_millis"
+            }
+          }
+        },
+        {
+          "term": {
+            "mode": "device"
+          }
+        },
+        {
+          "term": {
+            "data.name.keyword": "HKJC-102-AP01"
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "by_name": {
+      "terms": {
+        "field": "data.name.keyword",
+        "size": 1000
+      },
+      "aggs": {
+        "time_buckets": {
+          "date_histogram": {
+            "field": "@timestamp",
+            "min_doc_count": 0,
+            "extended_bounds": {
+              "min": 1754377490492,
+              "max": 1754463890493
+            },
+            "format": "epoch_millis",
+            "fixed_interval": "5m"
+          },
+          "aggs": {
+            "terminal_sum": {
+              "sum": {
+                "field": "data.SSID.terminalNum"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+Logic:
+  Filters:
+  •	Time range (@timestamp)
+  •	mode = “device”
+  •	data.name = “HKJC-102-AP01”
+
+  Aggregations:
+  •	Group by device name (data.name.keyword)
+  •	Then by time (date_histogram, 5m)
+  •	Sum of terminal count per interval (data.SSID.terminalNum)
+Relevant fields:
+@timestamp, mode, data.name.keyword, data.SSID.terminalNum
+Note:
+This query calculates the total number of terminals connected to a specific AP (“HKJC-102-AP01”) in 5-minute intervals by summing the data.SSID.terminalNum field over time.
+
+ARUBA:
+
+Title:
+5-Minute Rx and Tx Throughput Trend per AP for site HA02
+
+DSL:
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": 1754380893089,
+              "lte": 1754467293089,
+              "format": "epoch_millis"
+            }
+          }
+        },
+        {
+          "bool": {
+            "must": [
+              {
+                "term": {
+                  "site.keyword": "HA02"
+                }
+              },
+              {
+                "term": {
+                  "availabilityName.keyword": "SASA-HA02-AP01"
+                }
+              }
+            ],
+            "must_not": [
+              {
+                "exists": {
+                  "field": "command"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "availability_group": {
+      "terms": {
+        "field": "availabilityName.keyword",
+        "size": 100,
+        "order": {
+          "_key": "desc"
+        },
+        "min_doc_count": 1
+      },
+      "aggs": {
+        "by_GHz": {
+          "terms": {
+            "field": "GHz.keyword",
+            "size": 100,
+            "order": {
+              "_key": "desc"
+            },
+            "min_doc_count": 1
+          },
+          "aggs": {
+            "time_buckets": {
+              "date_histogram": {
+                "field": "@timestamp",
+                "min_doc_count": 0,
+                "extended_bounds": {
+                  "min": 1754380893089,
+                  "max": 1754467293089
+                },
+                "format": "epoch_millis",
+                "fixed_interval": "5m"
+              },
+              "aggs": {
+                "max_rx_bytes": {
+                  "max": {
+                    "field": "SSIDTable.RxDataBytes",
+                    "script": {
+                      "source": "_value / (300 / 8)"
+                    }
+                  }
+                },
+                "rx_diff": {
+                  "serial_diff": {
+                    "buckets_path": "max_rx_bytes",
+                    "lag": 1
+                  }
+                },
+                "max_tx_bytes_rate": {
+                  "max": {
+                    "field": "SSIDTable.TxDataBytes",
+                    "script": {
+                      "source": "_value / (300 / 8)"
+                    }
+                  }
+                },
+                "rate_diff": {
+                  "serial_diff": {
+                    "buckets_path": "max_tx_bytes_rate",
+                    "lag": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+Logic:
+  Filters:
+  •	Time range (@timestamp)
+  •	site = “HA02”
+  •	availabilityName = “SASA-HA02-AP01”
+  •	Exclude documents where command exists
+
+  Aggregations:
+  •	Group by device (availabilityName.keyword)
+  •	Then by band (GHz.keyword)
+  •	Then by time (date_histogram, 5m)
+  •	Compute max RX traffic rate per interval (SSIDTable.RxDataBytes ÷ 37.5)
+  •	Compute serial difference of RX rate (serial_diff on RX)
+  •	Compute max TX traffic rate per interval (SSIDTable.TxDataBytes ÷ 37.5)
+  •	Compute serial difference of TX rate (serial_diff on TX)
+Relevant fields:
+@timestamp, site.keyword, availabilityName.keyword, GHz.keyword, SSIDTable.RxDataBytes, SSIDTable.TxDataBytes, command
+Note:
+This query calculates the RX and TX traffic rates (not raw totals) by dividing the byte counters by 37.5 seconds (i.e., 300 seconds per 5m interval, converted to bits per second).
+
+Title:
+Number of unique clients per AP (availabilityName) within each site during the specified time range, 
+
+DSL:
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": 1754468750979,
+              "lte": 1754469080979,
+              "format": "epoch_millis"
+            }
+          }
+        },
+        {
+          "bool": {
+            "must": [
+              {
+                "exists": {
+                  "field": "ClientTable.MACAddress"
+                }
+              }
+            ],
+            "must_not": [
+              {
+                "exists": {
+                  "field": "command"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "by_site": {
+      "terms": {
+        "field": "site.keyword",
+        "size": 100
+      },
+      "aggs": {
+        "by_availabilityName": {
+          "terms": {
+            "field": "availabilityName.keyword",
+            "size": 100
+          }
+        }
+      }
+    }
+  },
+  "sort": [
+    {
+      "@timestamp": {
+        "order": "desc",
+        "unmapped_type": "boolean"
+      }
+    },
+    {
+      "_doc": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+Logic:
+  Filters:
+  •	Time range (@timestamp)
+  •	ClientTable.MACAddress exists
+  •	Exclude documents where command exists
+  Aggregations:
+  •	Group by site (site.keyword)
+  •	Then by access point (availabilityName.keyword)
+Relevant fields:
+@timestamp, site.keyword, availabilityName.keyword, ClientTable.MACAddress, command
+Note:
+Only entries where a client MAC address is present are considered, and control messages (command) are excluded
+
+
+Title:
+5-minute inbound traffic trend per interface (ge-0/0/0, ge-0/0/1, ge-0/0/2, ge-0/0/4) for SRX300 firewall at Office site
+
+DSL:
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": 1754383331992,
+              "lte": 1754469731992,
+              "format": "epoch_millis"
+            }
+          }
+        },
+        {
+          "bool": {
+            "must": [
+              {
+                "term": {
+                  "site.keyword": "Office"
+                }
+              },
+              {
+                "term": {
+                  "devicename.keyword": "SRX300"
+                }
+              },
+              {
+                "term": {
+                  "devicedesc.keyword": "Firewall"
+                }
+              },
+              {
+                "bool": {
+                  "should": [
+                    {
+                      "term": {
+                        "InterfaceTable.Description.keyword": "ge-0/0/0"
+                      }
+                    },
+                    {
+                      "term": {
+                        "InterfaceTable.Description.keyword": "ge-0/0/1"
+                      }
+                    },
+                    {
+                      "term": {
+                        "InterfaceTable.Description.keyword": "ge-0/0/2"
+                      }
+                    },
+                    {
+                      "term": {
+                        "InterfaceTable.Description.keyword": "ge-0/0/4"
+                      }
+                    }
+                  ],
+                  "minimum_should_match": 1
+                }
+              }
+            ],
+            "must_not": [
+              {
+                "exists": {
+                  "field": "command"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "by_interface": {
+      "terms": {
+        "field": "InterfaceTable.Description.keyword",
+        "size": 500,
+        "order": {
+          "_key": "desc"
+        },
+        "min_doc_count": 1
+      },
+      "aggs": {
+        "per_5min": {
+          "date_histogram": {
+            "field": "@timestamp",
+            "min_doc_count": 0,
+            "extended_bounds": {
+              "min": 1754383331992,
+              "max": 1754469731992
+            },
+            "format": "epoch_millis",
+            "fixed_interval": "5m"
+          },
+          "aggs": {
+            "max_in_traffic": {
+              "max": {
+                "field": "InterfaceTable.InTraffic",
+                "script": {
+                  "source": "_value / 37.5"
+                }
+              }
+            },
+            "in_traffic_diff": {
+              "serial_diff": {
+                "buckets_path": "max_in_traffic"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+Logic:
+  Filters:
+  •	Time range (@timestamp)
+  •	site = “Office”
+  •	devicename = “SRX300”
+  •	devicedesc = “Firewall”
+  •	InterfaceTable.Description in [“ge-0/0/0”, “ge-0/0/1”, “ge-0/0/2”, “ge-0/0/4”]
+  •	Exclude documents where command exists
+  Aggregations:
+  •	Group by interface name (InterfaceTable.Description.keyword)
+  •	Then by time (date_histogram, 5m)
+  •	Get max inbound traffic per interval, converted to rate (InterfaceTable.InTraffic / 37.5)
+  •	Compute serial difference to get rate per 5 minutes (serial_diff)
+Relevant fields:
+@timestamp, site.keyword, devicename.keyword, devicedesc.keyword, InterfaceTable.Description.keyword, InterfaceTable.InTraffic, command
+Note:
+This query measures the inbound traffic rate of specific firewall interfaces (ge-*) by converting cumulative traffic counters into per-second rates.
+
+
+Title:
+Trend of Available APs (excluding Virtual Controllers) per Site every 5 Minutes
+
+DSL:
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": 1754469727163,
+              "lte": 1754470627163,
+              "format": "epoch_millis"
+            }
+          }
+        },
+        {
+          "terms": {
+            "availabilityStatus": [1, 2]
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "term": {
+            "availabilityName.keyword": "Virtual Controller 1"
+          }
+        },
+        {
+          "term": {
+            "availabilityName.keyword": "Virtual Controller 2"
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "by_site": {
+      "terms": {
+        "field": "site.keyword",
+        "size": 100
+      },
+      "aggs": {
+        "per_5m": {
+          "date_histogram": {
+            "field": "@timestamp",
+            "fixed_interval": "5m",
+            "format": "epoch_millis",
+            "min_doc_count": 0,
+            "extended_bounds": {
+              "min": 1754469727163,
+              "max": 1754470627163
+            }
+          },
+          "aggs": {
+            "available_ap_count": {
+              "cardinality": {
+                "field": "availabilityName.keyword"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+Logic:
+  Filters:
+  •	Time range (@timestamp)
+  •	availabilityStatus in [1, 2]
+  •	Exclude availabilityName = “Virtual Controller 1”
+  •	Exclude availabilityName = “Virtual Controller 2”
+
+  Aggregations:
+  •	Group by site (site.keyword)
+  •	Then by time (date_histogram, 5m)
+  •	Count distinct available APs per time bucket (cardinality on availabilityName.keyword)
+
+Relevant fields:
+@timestamp, site.keyword, availabilityName.keyword, availabilityStatus
+Note:
+Virtual controllers are excluded from the count to ensure only actual APs are considered.
+
+
+Title:
+5-Minute Inbound Throughput Trend per Switch Port Interface on Switch 01 at site HA02.
+
+DSL:
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": 1754449624834,
+              "lte": 1754471224834,
+              "format": "epoch_millis"
+            }
+          }
+        },
+        {
+          "term": {
+            "site.keyword": "HA02"
+          }
+        },
+        {
+          "term": {
+            "devicename.keyword": "Switch 01"
+          }
+        },
+        {
+          "wildcard": {
+            "InterfaceTable.Description.keyword": {
+              "value": "*swp*"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "6": {
+      "terms": {
+        "field": "InterfaceTable.Description.keyword",
+        "size": 500,
+        "order": {
+          "_key": "asc"
+        },
+        "min_doc_count": 1
+      },
+      "aggs": {
+        "2": {
+          "date_histogram": {
+            "field": "@timestamp",
+            "min_doc_count": 0,
+            "extended_bounds": {
+              "min": 1754449624834,
+              "max": 1754471224834
+            },
+            "format": "epoch_millis",
+            "fixed_interval": "5m"
+          },
+          "aggs": {
+            "1": {
+              "max": {
+                "field": "InterfaceTable.InTraffic",
+                "script": "_value / (300/8)"
+              }
+            },
+            "3": {
+              "serial_diff": {
+                "buckets_path": "1",
+                "lag": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+Logic:
+  Filters:
+  •	Time range (@timestamp)
+  •	site = “HA02”
+  •	devicename = “Switch 01”
+  •	InterfaceTable.Description matches pattern “swp”
+
+  Aggregations:
+  •	Group by interface name (InterfaceTable.Description.keyword)
+  •	Then by time (date_histogram, 5m)
+  •	Get max inbound traffic per interval, converted to rate (InterfaceTable.InTraffic ÷ 37.5)
+  •	Compute serial difference between intervals (serial_diff)
+
+Relevant fields:
+@timestamp, site.keyword, devicename.keyword, InterfaceTable.Description.keyword, InterfaceTable.InTraffic
+Note:
+converting cumulative traffic to per-second rate and computing interval differences
+
+
+
